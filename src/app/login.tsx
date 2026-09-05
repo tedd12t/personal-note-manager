@@ -1,40 +1,37 @@
 import { Ionicons } from '@expo/vector-icons';
-import { useRouter } from 'expo-router';
-import { createUserWithEmailAndPassword, updateProfile } from 'firebase/auth';
+import { Link, useRouter } from 'expo-router';
+import { sendPasswordResetEmail, signInWithEmailAndPassword } from 'firebase/auth';
 import { useState } from 'react';
 import { KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth } from '../api/firebase';
 import { useTheme } from '../context/ThemeContext';
 
-export default function SignUpScreen() {
-  const [fullName, setFullName] = useState('');
+export default function LoginScreen() {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [focusedField, setFocusedField] = useState<string | null>(null);
-
+  
   const router = useRouter();
   const { theme } = useTheme();
 
-  const handleSignUp = async () => {
-    if (!fullName || !email || !password) return alert("Please fill in all fields.");
-    
+  const handleLogin = async () => {
+    if (!email || !password) return alert("Please fill all fields");
     try {
-      const userCredential = await createUserWithEmailAndPassword(auth, email, password);
-      await updateProfile(userCredential.user, { displayName: fullName });
-      router.replace('/home');
+      await signInWithEmailAndPassword(auth, email, password);
+      router.replace('/home'); 
     } catch (error: any) {
-      let message = "An error occurred. Please try again.";
-      
-      if (error.code === 'auth/email-already-in-use') {
-        message = "This email is already registered. Try logging in instead.";
-      } else if (error.code === 'auth/invalid-email') {
-        message = "That email address is not valid.";
-      } else if (error.code === 'auth/weak-password') {
-        message = "Password is too weak. Please use at least 6 characters.";
-      }
-      
-      alert(message);
+      alert("Invalid email or password.");
+    }
+  };
+
+  const handleReset = async () => {
+    if (!email) return alert("Please type your email address first.");
+    try {
+      await sendPasswordResetEmail(auth, email);
+      alert("Password reset email sent!");
+    } catch (error: any) {
+      alert(error.message);
     }
   };
 
@@ -43,20 +40,6 @@ export default function SignUpScreen() {
       <View style={[styles.authCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
         <View style={styles.form}>
           
-          <Text style={styles.label}>Full Name</Text>
-          <View style={[styles.inputWrapper, { borderColor: focusedField === 'name' ? '#8b3dff' : theme.border }]}>
-            <Ionicons name="person-outline" size={18} color="#999" style={styles.inputIcon} />
-            <TextInput 
-              placeholder="Your Name" 
-              placeholderTextColor="#ccc"
-              value={fullName} 
-              onChangeText={setFullName} 
-              onFocus={() => setFocusedField('name')}
-              onBlur={() => setFocusedField(null)}
-              style={[styles.input, { color: theme.text }, Platform.OS === 'web' && { outlineStyle: 'none' } as any]} 
-            />
-          </View>
-
           <Text style={styles.label}>Email address</Text>
           <View style={[styles.inputWrapper, { borderColor: focusedField === 'email' ? '#8b3dff' : theme.border }]}>
             <Ionicons name="mail-outline" size={18} color="#999" style={styles.inputIcon} />
@@ -68,7 +51,7 @@ export default function SignUpScreen() {
               onFocus={() => setFocusedField('email')}
               onBlur={() => setFocusedField(null)}
               style={[styles.input, { color: theme.text }, Platform.OS === 'web' && { outlineStyle: 'none' } as any]} 
-              autoCapitalize="none" 
+              autoCapitalize="none"
             />
           </View>
 
@@ -90,15 +73,19 @@ export default function SignUpScreen() {
             </TouchableOpacity>
           </View>
           
-          <TouchableOpacity style={styles.actionBtn} onPress={handleSignUp}>
-            <Text style={styles.btnText}>Sign up</Text>
+          <TouchableOpacity onPress={handleReset}>
+             <Text style={styles.forgotLink}>Forgot your password?</Text>
+          </TouchableOpacity>
+
+          <TouchableOpacity style={styles.loginBtn} onPress={handleLogin}>
+            <Text style={styles.loginBtnText}>Sign in</Text>
           </TouchableOpacity>
 
           <View style={styles.footer}>
-            <Text style={{ color: '#666' }}>Have an account already? </Text>
-            <TouchableOpacity onPress={() => router.push('/login')}>
-              <Text style={styles.link}>Sign in</Text>
-            </TouchableOpacity>
+            <Text style={{ color: '#666' }}>New to the app? </Text>
+            <Link href="/signup" asChild>
+              <TouchableOpacity><Text style={styles.bottomLink}>Sign up</Text></TouchableOpacity>
+            </Link>
           </View>
         </View>
       </View>
@@ -111,12 +98,13 @@ const styles = StyleSheet.create({
   authCard: { width: '100%', maxWidth: 400, padding: 40, borderRadius: 15, borderWidth: 1, elevation: 3 },
   form: { width: '100%' },
   label: { fontSize: 13, fontWeight: '700', color: '#705454', marginBottom: 8 },
-  inputWrapper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 8, marginBottom: 15, paddingHorizontal: 12, height: 45 },
+  inputWrapper: { flexDirection: 'row', alignItems: 'center', borderWidth: 1.5, borderRadius: 8, marginBottom: 20, paddingHorizontal: 12, height: 45 },
   inputIcon: { marginRight: 10 },
   input: { flex: 1, height: '100%', fontSize: 14 },
   eyeIcon: { padding: 5 },
-  actionBtn: { backgroundColor: '#3a04fffd', padding: 14, borderRadius: 8, alignItems: 'center', marginTop: 10 },
-  btnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
-  link: { color: '#3a04fffd', fontWeight: 'bold' },
+  forgotLink: { color: '#3a04fffd', fontSize: 13, marginBottom: 30, fontWeight: '600' },
+  loginBtn: { backgroundColor: '#3a04fffd', padding: 14, borderRadius: 8, alignItems: 'center' },
+  loginBtnText: { color: '#fff', fontSize: 16, fontWeight: '600' },
   footer: { flexDirection: 'row', justifyContent: 'center', marginTop: 25 },
+  bottomLink: { color: '#3a04fffd', fontWeight: 'bold' }
 });

@@ -1,137 +1,90 @@
-import { useRouter } from 'expo-router';
-import {
-  addDoc,
-  collection,
-  deleteDoc, doc,
-  onSnapshot,
-  query,
-  updateDoc,
-  where
-} from 'firebase/firestore';
+import { Ionicons } from '@expo/vector-icons';
+import { Stack, useRouter } from 'expo-router';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, query, updateDoc, where } from 'firebase/firestore';
 import { useEffect, useState } from 'react';
-import {
-  Alert,
-  FlatList,
-  KeyboardAvoidingView, Platform,
-  StyleSheet,
-  Text, TextInput,
-  TouchableOpacity,
-  View
-} from 'react-native';
+import { FlatList, KeyboardAvoidingView, Platform, StyleSheet, Text, TextInput, TouchableOpacity, View } from 'react-native';
 import { auth, db } from '../api/firebase';
+import { useTheme } from '../context/ThemeContext';
 
 export default function HomeScreen() {
   const [noteText, setNoteText] = useState('');
   const [notes, setNotes] = useState<any[]>([]);
   const [editingId, setEditingId] = useState<string | null>(null);
   const router = useRouter();
+  const { theme, isDark, toggleTheme } = useTheme();
 
-  // for reading
   useEffect(() => {
     if (!auth.currentUser) return;
-
-    const q = query(
-      collection(db, "notes"), 
-      where("userId", "==", auth.currentUser.uid)
-    );
-
+    const q = query(collection(db, "notes"), where("userId", "==", auth.currentUser.uid));
     const unsubscribe = onSnapshot(q, (snapshot) => {
-      const notesList = snapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      }));
-      setNotes(notesList);
+      setNotes(snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })));
     });
-
     return unsubscribe;
   }, []);
 
-  // creating and updating
   const handleSaveNote = async () => {
     if (noteText.trim() === '') return;
-
     try {
       if (editingId) {
-        // update logic
-        const noteRef = doc(db, "notes", editingId);
-        await updateDoc(noteRef, { text: noteText });
+        await updateDoc(doc(db, "notes", editingId), { text: noteText });
         setEditingId(null);
       } else {
-        // create logic
-        await addDoc(collection(db, "notes"), {
-          text: noteText,
-          userId: auth.currentUser?.uid,
-          createdAt: new Date()
-        });
+        await addDoc(collection(db, "notes"), { text: noteText, userId: auth.currentUser?.uid, createdAt: new Date() });
       }
       setNoteText('');
-    } catch (error) {
-      console.error("Error saving note: ", error);
-    }
+    } catch (error) { console.error(error); }
   };
 
-  // delete logic
   const handleDeleteNote = async (id: string) => {
     if (Platform.OS === 'web') {
-      const confirmDelete = window.confirm("Are you sure you want to delete this note?");
-      if (confirmDelete) {
-        await deleteDoc(doc(db, "notes", id));
-      }
+      if (window.confirm("Delete note?")) await deleteDoc(doc(db, "notes", id));
       return;
     }
-
-    Alert.alert("Delete Note", "Are you sure?", [
-      { text: "Cancel", style: "cancel" },
-      { text: "Delete", style: "destructive", onPress: async () => {
-          await deleteDoc(doc(db, "notes", id));
-        } 
-      }
-    ]);
-  };
-  const startEdit = (id: string, currentText: string) => {
-    setNoteText(currentText);
-    setEditingId(id);
-  };
-
-  const handleLogout = async () => {
-    await auth.signOut();
-    router.replace('/');
+    await deleteDoc(doc(db, "notes", id));
   };
 
   return (
-    <KeyboardAvoidingView 
-      behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
-      style={styles.container}
-    >
-      <View style={styles.header}>
-        <View>
-          <Text style={styles.welcomeText}>Hello,</Text>
-          <Text style={styles.userName}>{auth.currentUser?.displayName || "User"}</Text>
-        </View>
-        <TouchableOpacity onPress={handleLogout}>
-          <Text style={styles.logoutText}>Logout</Text>
-        </TouchableOpacity>
+    <KeyboardAvoidingView behavior="padding" style={[styles.container, { backgroundColor: theme.background }]}>
+      <Stack.Screen options={{
+        headerRight: () => (
+          <View style={{ flexDirection: 'row', alignItems: 'center', marginRight: 15 }}>
+            <TouchableOpacity onPress={toggleTheme} style={{ marginRight: 20 }}>
+              <Ionicons name={isDark ? "sunny" : "moon"} size={20} color={theme.text} />
+            </TouchableOpacity>
+      
+            <TouchableOpacity onPress={() => { auth.signOut(); router.replace('/'); }}>
+              <Text style={{ color: '#FF3B30', fontWeight: 'bold', fontSize: 14 }}>Logout</Text>
+            </TouchableOpacity>
+          </View>
+        )
+      }} />
+
+      <View style={styles.headerInfo}>
+        <Text style={{ color: isDark ? '#aaa' : '#666' }}>Hello,</Text>
+        <Text style={[styles.userName, { color: theme.text }]}>{auth.currentUser?.displayName || "User"}</Text>
       </View>
+
       <View style={styles.inputRow}>
         <TextInput 
           placeholder="Write a note..." 
+          placeholderTextColor={isDark ? '#777' : '#999'}
           value={noteText} 
           onChangeText={setNoteText} 
-          style={styles.input}
+          style={[styles.input, { backgroundColor: theme.card, color: theme.text, borderColor: theme.border }]}
         />
         <TouchableOpacity style={styles.saveBtn} onPress={handleSaveNote}>
           <Text style={styles.saveBtnText}>{editingId ? "✓" : "+"}</Text>
         </TouchableOpacity>
       </View>
+
       <FlatList 
         data={notes}
         keyExtractor={(item) => item.id}
         renderItem={({ item }) => (
-          <View style={styles.noteCard}>
-            <Text style={styles.noteText}>{item.text}</Text>
-            
-            <View style={styles.actionRow}>
-              <TouchableOpacity onPress={() => startEdit(item.id, item.text)}>
+          <View style={[styles.noteCard, { backgroundColor: theme.card, borderColor: theme.border }]}>
+            <Text style={[styles.noteText, { color: theme.text }]}>{item.text}</Text>
+            <View style={[styles.actionRow, { borderTopColor: theme.border }]}>
+              <TouchableOpacity onPress={() => { setNoteText(item.text); setEditingId(item.id); }}>
                 <Text style={styles.editBtn}>Edit</Text>
               </TouchableOpacity>
               <TouchableOpacity onPress={() => handleDeleteNote(item.id)}>
@@ -140,36 +93,22 @@ export default function HomeScreen() {
             </View>
           </View>
         )}
-        ListEmptyComponent={<Text style={styles.empty}>No notes yet.</Text>}
       />
     </KeyboardAvoidingView>
   );
 }
 
 const styles = StyleSheet.create({
-  container: { flex: 1, padding: 20, backgroundColor: '#f9f9f9', paddingTop: 60 },
-  header: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 30 },
-  welcomeText: { fontSize: 16, color: '#666' },
-  userName: { fontSize: 28, fontWeight: 'bold', color: '#1a1a1a' },
-  logoutText: { color: '#1d0392', fontWeight: 'bold' },
+  container: { flex: 1, padding: 20 },
+  headerInfo: { marginBottom: 25 },
+  userName: { fontSize: 28, fontWeight: 'bold' },
   inputRow: { flexDirection: 'row', marginBottom: 25 },
-  input: { 
-    flex: 1, backgroundColor: '#fff', padding: 18, borderRadius: 12, 
-    fontSize: 16, borderWidth: 1, borderColor: '#eee' 
-  },
-  saveBtn: { 
-    backgroundColor: '#007AFF', width: 60, height: 60, 
-    borderRadius: 12, marginLeft: 10, justifyContent: 'center', alignItems: 'center' 
-  },
+  input: { flex: 1, padding: 18, borderRadius: 12, borderWidth: 1, fontSize: 16 },
+  saveBtn: { backgroundColor: '#007AFF', width: 60, borderRadius: 12, marginLeft: 10, justifyContent: 'center', alignItems: 'center' },
   saveBtnText: { color: '#fff', fontSize: 24, fontWeight: 'bold' },
-  noteCard: { 
-    backgroundColor: '#fff', padding: 20, borderRadius: 15, 
-    marginBottom: 15, shadowColor: '#000', shadowOpacity: 0.05, 
-    shadowRadius: 10, elevation: 2 
-  },
-  noteText: { fontSize: 16, color: '#333', lineHeight: 22 },
-  actionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 15, borderTopWidth: 1, borderTopColor: '#f0f0f0', paddingTop: 10 },
+  noteCard: { padding: 20, borderRadius: 15, marginBottom: 15, borderWidth: 1 },
+  noteText: { fontSize: 16, lineHeight: 22 },
+  actionRow: { flexDirection: 'row', justifyContent: 'flex-end', marginTop: 15, borderTopWidth: 1, paddingTop: 10 },
   editBtn: { color: '#007AFF', marginRight: 20, fontWeight: 'bold' },
-  deleteBtn: { color: '#FF3B30', fontWeight: 'bold' },
-  empty: { textAlign: 'center', color: '#999', marginTop: 40 }
+  deleteBtn: { color: '#FF3B30', fontWeight: 'bold' }
 });

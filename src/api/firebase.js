@@ -1,8 +1,8 @@
 import { initializeApp } from "firebase/app";
-import { getAuth } from "firebase/auth"; // For Authentication
-import { getFirestore } from "firebase/firestore"; // For the Database (CRUD)
+import { getAuth } from "firebase/auth"; // for auth
+import { getFirestore } from "firebase/firestore"; // for database
 
-// Your web app's Firebase configuration
+// web app's firebase config
 const firebaseConfig = {
   apiKey: "AIzaSyALnu_PYS4vug0qhHx9CWZHTl0zjtr9Yns",
   authDomain: "personal-note-manager-dfd84.firebaseapp.com",
@@ -13,9 +13,9 @@ const firebaseConfig = {
   measurementId: "G-8KSTTC78VC"
 };
 
-// Initialize Firebase
+// start/initialize Firebase
 const app = initializeApp(firebaseConfig);
 
-// Export these so we can use them in our screens
+// exporting so seen in the screen
 export const auth = getAuth(app);
 export const db = getFirestore(app);
